@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Smart Building Energy</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#12202e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Building Energy">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#eef2f6;--card:#fff;--ink:#12202e;--mute:#5d6e80;--line:#d7dfe8;--fan:#0a8fb3;--lit:#d98a00;--eng:#1f9d62;--bad:#cf3f3f;--track:#e3e9f0}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d1620;--card:#15222f;--ink:#e6eef6;--mute:#8da0b3;--line:#243445;--fan:#35c2e8;--lit:#f2b33d;--eng:#43d08b;--bad:#ff7070;--track:#223243}}
+:root[data-theme="dark"]{--bg:#0d1620;--card:#15222f;--ink:#e6eef6;--mute:#8da0b3;--line:#243445;--fan:#35c2e8;--lit:#f2b33d;--eng:#43d08b;--bad:#ff7070;--track:#223243}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-variant-numeric:tabular-nums}
+main{max-width:520px;margin:0 auto;padding:14px 14px 40px}
+header{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px}
+h1{font-size:18px;margin:0;line-height:1.2}h1 small{display:block;font-weight:400;color:var(--mute);font-size:12px;margin-top:2px}
+.pill{display:flex;align-items:center;gap:6px;padding:6px 11px;border-radius:99px;background:var(--card);border:1px solid var(--line);font-size:13px;font-weight:600;white-space:nowrap}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--bad)}.on .dot{background:var(--eng);box-shadow:0 0 0 3px color-mix(in srgb,var(--eng) 25%,transparent)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+.card h2{margin:0 0 10px;font-size:14px;display:flex;justify-content:space-between;align-items:center;color:var(--mute);font-weight:600}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.m{background:var(--bg);border-radius:10px;padding:10px}.m b{display:block;font-size:24px;line-height:1.1}.m span{font-size:12px;color:var(--mute)}
+.badge{font-size:12px;font-weight:700;padding:3px 9px;border-radius:99px;background:var(--track);color:var(--mute)}.badge.y{background:var(--eng);color:#fff}
+.mode{display:flex;background:var(--track);border-radius:14px;padding:5px;margin-bottom:12px}
+.mode button{flex:1;border:0;background:none;color:var(--mute);font:700 17px system-ui;padding:15px 0;border-radius:10px;cursor:pointer}
+.mode button.sel{background:var(--ink);color:var(--bg)}
+.row{display:flex;justify-content:space-between;align-items:center;margin:4px 0 6px}
+.big{font-size:30px;font-weight:700}.big small{font-size:14px;color:var(--mute);font-weight:500}
+.btn{border:1px solid var(--line);background:var(--bg);color:var(--ink);font:600 14px system-ui;padding:9px 18px;border-radius:99px;cursor:pointer}
+.btn.act{color:#fff;border-color:transparent}
+input[type=range]{width:100%;height:34px;accent-color:var(--c);margin:2px 0}
+.dis{opacity:.45;pointer-events:none}
+.hint{font-size:12px;color:var(--mute);margin:6px 0 0}
+.tot{font-size:34px;font-weight:700;color:var(--eng)}
+svg{width:100%;height:110px;display:block}
+.set label{display:block;font-size:13px;color:var(--mute);margin:10px 0 4px}
+.set input[type=text],.set input[type=number]{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:14px system-ui}
+#install{display:none;align-items:center;justify-content:space-between;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:var(--mute)}#install.show{display:flex}#install .btn{background:var(--ink);color:var(--bg);border:0;white-space:nowrap}
+pre{background:var(--bg);padding:10px;border-radius:8px;font-size:11px;overflow-x:auto;margin:8px 0 0}
+</style></head><body><main>
+<header><h1>Smart Building Energy<small>ESP32 · Firebase Realtime Database</small></h1>
+<div class="pill" id="conn"><span class="dot"></span><span id="connT">Disconnected</span></div></header>
+
+<div id="install"><span id="instTxt">Install this app on your device</span><button class="btn" id="instBtn">Install App</button></div>
+
+<div class="mode" role="group" aria-label="Control mode"><button id="bAuto">AUTO</button><button id="bMan">MANUAL</button></div>
+
+<section class="card"><h2>Room status <span class="badge" id="occ">Empty</span></h2>
+<div class="grid">
+<div class="m"><b id="pc">0</b><span>People</span></div>
+<div class="m"><b id="tp">--</b><span>Temperature °C</span></div>
+<div class="m"><b id="hu">--</b><span>Humidity %</span></div>
+<div class="m"><b id="lx">--</b><span>Ambient light (lux)</span></div></div></section>
+
+<section class="card" style="--c:var(--fan)"><h2>Fan <span class="badge" id="fS">OFF</span></h2>
+<div class="row"><div class="big" id="fSp">0<small>%</small></div><div class="big" style="color:var(--fan)" id="fW">0.0<small> W</small></div></div>
+<div id="fCtl"><input type="range" id="fSl" min="0" max="100" value="0" aria-label="Fan speed">
+<div class="row"><button class="btn" id="fBtn">Turn on</button></div></div></section>
+
+<section class="card" style="--c:var(--lit)"><h2>Light <span class="badge" id="lS">OFF</span></h2>
+<div class="row"><div class="big" id="lB">0<small>%</small></div><div class="big" style="color:var(--lit)" id="lW">0.0<small> W</small></div></div>
+<div id="lCtl"><input type="range" id="lSl" min="0" max="100" value="0" aria-label="Light brightness">
+<div class="row"><button class="btn" id="lBtn">Turn on</button></div></div>
+<p class="hint" id="hint"></p></section>
+
+<section class="card"><h2>Energy</h2>
+<div class="tot" id="tW">0.0<small style="font-size:15px;color:var(--mute)"> W total</small></div>
+<div class="grid" style="margin:10px 0">
+<div class="m"><b id="dE">0.0000</b><span>Today (kWh)</span></div>
+<div class="m"><b id="mE">0.00</b><span>This month (kWh)</span></div></div>
+<svg viewBox="0 0 300 110" preserveAspectRatio="none" id="ch" aria-label="Power over time"></svg>
+<p class="hint">Total power, last 60 readings</p></section>
+
+<section class="card set"><h2>Settings</h2>
+<label>Source</label>
+<div class="mode" style="margin:0"><button id="sDemo" style="font-size:14px;padding:10px 0">Demo</button><button id="sLive" style="font-size:14px;padding:10px 0">Live (Firebase)</button></div>
+<label for="db">Database URL</label><input type="text" id="db" placeholder="https://your-project-default-rtdb.firebaseio.com">
+<label for="dly">Auto-off delay when empty (seconds)</label><input type="number" id="dly" min="1" max="3600" value="10">
+<p class="hint">Live mode polls /building every 2 s. ESP32 writes /building/sensors; this app writes /building/control.</p>
+<pre>/building
+  sensors: peopleCount, temperature, humidity,
+    lightLevel, fanStatus, fanSpeed, lightStatus,
+    lightBrightness, fanPower, lightPower,
+    totalPower, dailyEnergy, monthlyEnergy,
+    operatingMode ("auto"|"manual")
+  control: mode, fanOn, fanSpeed,
+    lightOn, lightBrightness, offDelay</pre>
+<p class="hint">Prototype: low-voltage DC fan + LED only (via MOSFET driver). No AC mains.</p></section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+let src='demo',dbUrl='',C={mode:'auto',fanOn:false,fanSpeed:0,lightOn:false,lightBrightness:0,offDelay:10},
+S={peopleCount:0,temperature:26,humidity:55,lightLevel:500,fanStatus:false,fanSpeed:0,lightStatus:false,lightBrightness:0,fanPower:0,lightPower:0,totalPower:0,dailyEnergy:0,monthlyEnergy:18.42,operatingMode:'auto'},
+hist=[],drag={},sim={t:0,empty:0,last:-99};
+try{const s=JSON.parse(localStorage.getItem('sbeo')||'{}');src=s.src||'demo';dbUrl=s.db||'';C.offDelay=s.dly||10}catch(e){}
+function save(){try{localStorage.setItem('sbeo',JSON.stringify({src,db:dbUrl,dly:C.offDelay}))}catch(e){}}
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+let online=false;
+function setConn(ok){online=ok;$('conn').className='pill'+(ok?' on':'');$('connT').textContent=ok?(src==='demo'?'Connected (demo)':'Connected'):'Disconnected'}
+
+/* ---- demo ESP32 simulator ---- */
+function tick(){
+  const s=S;sim.t++;
+  if(Math.random()<.06)s.peopleCount=clamp(s.peopleCount+(Math.random()<.5?-1:1),0,5);
+  const tgt=25+s.peopleCount*1.4+(Math.sin(sim.t/40)*2);
+  s.temperature=+(s.temperature+(tgt-s.temperature)*.06+(Math.random()-.5)*.1).toFixed(1);
+  s.humidity=+clamp(s.humidity+(Math.random()-.5),40,75).toFixed(0);
+  s.lightLevel=Math.round(500+400*Math.sin(sim.t/50));
+  if(C.mode==='auto'){
+    sim.empty=s.peopleCount===0?sim.empty+1:0;
+    const canSwitch=sim.t-sim.last>=5; // anti-flap hold
+    if(s.peopleCount===0){
+      if(sim.empty>=C.offDelay&&canSwitch&&(s.fanStatus||s.lightStatus)){s.fanStatus=s.lightStatus=false;sim.last=sim.t}
+    }else{
+      const wantFan=s.temperature>=26,wantLight=s.lightLevel<700;
+      if(wantFan!==s.fanStatus&&canSwitch){s.fanStatus=wantFan;sim.last=sim.t}
+      if(wantLight!==s.lightStatus&&canSwitch){s.lightStatus=wantLight;sim.last=sim.t}
+      s.fanSpeed=s.fanStatus?Math.round(clamp(25+(s.temperature-26)*15+(s.peopleCount-1)*8,20,100)):0;
+      s.lightBrightness=s.lightStatus?Math.round(clamp(100-s.lightLevel/8+(s.peopleCount-1)*5,15,100)):0;
+    }
+    if(!s.fanStatus)s.fanSpeed=0;if(!s.lightStatus)s.lightBrightness=0;
+  }else{s.fanStatus=C.fanOn;s.fanSpeed=C.fanOn?C.fanSpeed:0;s.lightStatus=C.lightOn;s.lightBrightness=C.lightOn?C.lightBrightness:0}
+  s.operatingMode=C.mode;
+  s.fanPower=+(s.fanStatus?.4+2.6*s.fanSpeed/100:0).toFixed(2);
+  s.lightPower=+(s.lightStatus?.1+1.4*s.lightBrightness/100:0).toFixed(2);
+  s.totalPower=+(s.fanPower+s.lightPower).toFixed(2);
+  const k=s.totalPower/1000/3600*60; // demo time runs 60x
+  s.dailyEnergy=+(s.dailyEnergy+k).toFixed(6);s.monthlyEnergy=+(s.monthlyEnergy+k).toFixed(6);
+  setConn(true);push();
+}
+function push(){hist.push(S.totalPower);if(hist.length>60)hist.shift();render()}
+
+/* ---- Firebase REST (live) ---- */
+async function poll(){
+  if(!dbUrl){setConn(false);return}
+  try{const r=await fetch(dbUrl.replace(/\/$/,'')+'/building/sensors.json');if(!r.ok)throw 0;
+    const d=await r.json();if(d){Object.assign(S,d);C.mode=d.operatingMode||C.mode;setConn(true);push()}else setConn(false)}
+  catch(e){setConn(false)}
+}
+async function send(p){
+  Object.assign(C,p);
+  if(src==='live'&&dbUrl){try{await fetch(dbUrl.replace(/\/$/,'')+'/building/control.json',{method:'PATCH',body:JSON.stringify(p)})}catch(e){setConn(false)}}
+  if(src==='demo')tick();else render();
+}
+
+/* ---- render ---- */
+const f1=(v,d=1)=>Number(v||0).toFixed(d);
+function render(){
+  const s=S,man=C.mode==='manual';
+  $('bAuto').className=man?'':'sel';$('bMan').className=man?'sel':'';
+  $('pc').textContent=s.peopleCount;$('occ').textContent=s.peopleCount>0?'Occupied':'Empty';$('occ').className='badge'+(s.peopleCount>0?' y':'');
+  $('tp').textContent=f1(s.temperature);$('hu').textContent=f1(s.humidity,0);$('lx').textContent=Math.round(s.lightLevel||0);
+  $('fS').textContent=s.fanStatus?'ON':'OFF';$('fS').className='badge'+(s.fanStatus?' y':'');
+  $('lS').textContent=s.lightStatus?'ON':'OFF';$('lS').className='badge'+(s.lightStatus?' y':'');
+  $('fSp').innerHTML=Math.round(s.fanSpeed)+'<small>%</small>';$('lB').innerHTML=Math.round(s.lightBrightness)+'<small>%</small>';
+  $('fW').innerHTML=f1(s.fanPower)+'<small> W</small>';$('lW').innerHTML=f1(s.lightPower)+'<small> W</small>';
+  if(!drag.f)$('fSl').value=s.fanSpeed;if(!drag.l)$('lSl').value=s.lightBrightness;
+  $('fBtn').textContent=s.fanStatus?'Turn off':'Turn on';$('lBtn').textContent=s.lightStatus?'Turn off':'Turn on';
+  $('fCtl').className=man?'':'dis';$('lCtl').className=man?'':'dis';
+  $('hint').textContent=man?'Manual mode: your commands override automatic control.':'Auto mode: switch to Manual to adjust the fan and light.';
+  $('tW').firstChild.textContent=f1(s.totalPower);
+  $('dE').textContent=f1(s.dailyEnergy,4);$('mE').textContent=f1(s.monthlyEnergy,2);
+  const mx=Math.max(4.5,...hist),n=hist.length,pts=hist.map((v,i)=>[(i/59)*300+(60-n)/59*300,105-(v/mx)*95]);
+  const line=pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+  $('ch').innerHTML=n?`<polyline points="0,105 ${line} ${pts[n-1][0]},105" fill="color-mix(in srgb,var(--eng) 18%,transparent)" stroke="none"/><polyline points="${line}" fill="none" stroke="var(--eng)" stroke-width="2" vector-effect="non-scaling-stroke"/><line x1="0" y1="105" x2="300" y2="105" stroke="var(--line)"/>`:'';
+  $('sDemo').className=src==='demo'?'sel':'';$('sLive').className=src==='live'?'sel':'';
+}
+
+/* ---- events ---- */
+$('bAuto').onclick=()=>send({mode:'auto'});
+$('bMan').onclick=()=>send({mode:'manual',fanOn:S.fanStatus,fanSpeed:S.fanSpeed||50,lightOn:S.lightStatus,lightBrightness:S.lightBrightness||60});
+$('fBtn').onclick=()=>send({fanOn:!S.fanStatus,fanSpeed:S.fanSpeed||50});
+$('lBtn').onclick=()=>send({lightOn:!S.lightStatus,lightBrightness:S.lightBrightness||60});
+[['fSl','f','fanSpeed','fanOn'],['lSl','l','lightBrightness','lightOn']].forEach(([id,k,key,on])=>{
+  const e=$(id);
+  e.oninput=()=>{drag[k]=1;(k==='f'?$('fSp'):$('lB')).innerHTML=e.value+'<small>%</small>'};
+  e.onchange=()=>{drag[k]=0;send({[key]:+e.value,[on]:+e.value>0})};
+});
+$('dly').onchange=e=>{C.offDelay=clamp(+e.target.value||10,1,3600);save();send({offDelay:C.offDelay})};
+$('db').onchange=e=>{dbUrl=e.target.value.trim();save();if(src==='live')poll()};
+$('sDemo').onclick=()=>{src='demo';save();render()};
+$('sLive').onclick=()=>{src='live';save();setConn(false);poll();render()};
+$('db').value=dbUrl;$('dly').value=C.offDelay;
+document.querySelectorAll('.set .mode button').forEach(b=>b.style.cssText+=';');
+setInterval(()=>{src==='demo'?tick():poll()},src==='demo'?1000:2000);
+setInterval(()=>{},1e9);
+(function loop(){let last=src;setInterval(()=>{if(last!==src){last=src;if(src==='demo')tick()}},300)})();
+tick();
+
+/* ---- PWA: service worker + Install App ---- */
+if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost')){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+let deferred=null;
+const standalone=matchMedia('(display-mode: standalone)').matches||navigator.standalone;
+const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferred=e;if(!standalone)$('install').classList.add('show')});
+window.addEventListener('appinstalled',()=>{deferred=null;$('install').classList.remove('show')});
+$('instBtn').onclick=async()=>{
+  if(deferred){deferred.prompt();await deferred.userChoice;deferred=null;$('install').classList.remove('show')}
+  else alert('On iPhone/iPad: tap Share, then "Add to Home Screen".');
+};
+if(isIOS&&!standalone){$('instTxt').textContent='Add to Home Screen: tap Share, then "Add to Home Screen"';$('instBtn').style.display='none';$('install').classList.add('show')}
+</script></body></html>
